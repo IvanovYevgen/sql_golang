@@ -3,10 +3,9 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	_ "github.com/lib/pq"
 	"log"
 	"time"
-
-	_ "github.com/lib/pq"
 )
 
 type User struct {
@@ -28,6 +27,18 @@ func main() {
 		log.Fatal(err)
 	}
 
+	users, err := getusers(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(users)
+
+	user, err := getUserByID(db, 1)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(user)
+
 	// createTableQuery := `
 	// CREATE TABLE IF NOT EXISTS users (
 	// 	id SERIAL PRIMARY KEY,
@@ -42,24 +53,25 @@ func main() {
 	// 	log.Fatal("Ошибка при создании таблицы: ", err)
 	// }
 
+	// insertQuery := `
+	// INSERT INTO users (name, email, password, registered_at)
+	// VALUES
+	// 	('John Doe', 'john.doe@example.com', 'password123', NOW()),
+	// 	('Jane Smith', 'jane.smith@example.com', 'password456', NOW()),
+	// 	('Alice Johnson', 'alice.johnson@example.com', 'password789', NOW())
+	// `
 
-	insertQuery := `
-	INSERT INTO users (name, email, password, registered_at) 
-	VALUES
-		('John Doe', 'john.doe@example.com', 'password123', NOW()),
-		('Jane Smith', 'jane.smith@example.com', 'password456', NOW()),
-		('Alice Johnson', 'alice.johnson@example.com', 'password789', NOW())
-	`
+	// _, err = db.Exec(insertQuery)
+	// if err != nil {
+	// 	log.Fatal("Ошибка при вставке данных: ", err)
+	// }
 
-	_, err = db.Exec(insertQuery)
+}
+
+func getusers(db *sql.DB) ([]User, error) {
+	rows, err := db.Query("select * from users")
 	if err != nil {
-		log.Fatal("Ошибка при вставке данных: ", err)
-	}
-
-
-	rows, err := db.Query("SELECT * FROM users")
-	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -68,13 +80,23 @@ func main() {
 		u := User{}
 		err := rows.Scan(&u.ID, &u.Name, &u.Email, &u.Password, &u.RegisteredAt)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		users = append(users, u)
 	}
 	if err := rows.Err(); err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	fmt.Println(users)
+	return users, nil
+}
+
+func getUserByID(db *sql.DB, id int64) (User, error) {
+	var u User
+	err := db.QueryRow("SELECT * FROM users WHERE id = $1", id).
+		Scan(&u.ID, &u.Name, &u.Email, &u.Password, &u.RegisteredAt)
+	if err != nil {
+		return User{}, err
+	}
+	return u, nil
 }
